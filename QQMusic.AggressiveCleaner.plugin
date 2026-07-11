@@ -1,0 +1,17 @@
+#!name=QQ音乐激进清理
+#!desc=针对 iOS QQ 音乐的开屏、运营位、垃圾 tab 和推广入口做激进清理
+#!author=Codex
+#!type=normal
+
+[rewrite]
+# 开屏和启动广告
+^https?:\/\/(?:[A-Za-z0-9-]+\.)?(?:y|u|c|i)\.qq\.com\/.*(splash|popup|advert|ad|operation|activity).* reject
+^https?:\/\/musicpay\.qq\.com\/.*(splash|popup|advert|ad|operation|activity).* reject
+
+[script]
+# QQ 音乐响应体清洗
+http-response ^https?:\/\/(y|u|c|i)\.qq\.com\/.* script-path=scripts/qqmusic_cleaner.js, requires-body=true, tag=QQ音乐清理
+http-response ^https?:\/\/musicpay\.qq\.com\/.* script-path=scripts/qqmusic_cleaner.js, requires-body=true, tag=QQ音乐清理
+
+[MITM]
+hostname = y.qq.com, u.y.qq.com, c.y.qq.com, i.y.qq.com, musicpay.qq.com, *.music.qq.com
