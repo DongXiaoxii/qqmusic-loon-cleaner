@@ -25,7 +25,7 @@ Open the plugin detail page in Loon to control each category independently. Ever
 - `[广告] 屏蔽弹窗与气泡`
 - `[广告] 屏蔽横幅与运营卡片`
 - `[入口] 屏蔽直播`
-- `[入口] 屏蔽视频与短视频`
+- `[入口] 屏蔽刷歌、视频与短视频`
 - `[入口] 屏蔽商城、活动与福利`
 - `[推荐] 屏蔽推广推荐内容`
 - `[隐私] 屏蔽埋点与上报`
@@ -33,6 +33,8 @@ Open the plugin detail page in Loon to control each category independently. Ever
 After installing a new plugin version, refresh it in Loon and completely restart QQ Music. Changing one switch only affects its own category.
 
 The request controller does not modify QQ Music's `m-encoding` or `accept-encoding` headers. Requests containing playback, search, login, lyrics, songs, albums, artists, playlists, or unknown mixed modules are deliberately allowed. The response cleaner only modifies JSON that Loon can parse safely.
+
+With the switches on, `block_live` and `block_video` directly interrupt the capture-confirmed bottom live and swipe-song configuration modules. Turning either switch off allows its corresponding modules before any other blocking decision.
 
 ## Files
 

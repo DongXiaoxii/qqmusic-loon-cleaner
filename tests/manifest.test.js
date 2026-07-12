@@ -69,3 +69,13 @@ test('plugin uses the request safety controller without static rejects or m1 rew
     /http-request .*qqmusic_request\.js,requires-body=true,binary-body-mode=true,.*argument=\[/
   );
 });
+
+test('video switch explicitly includes bottom swipe-song blocking', async () => {
+  const pluginPath = path.join(__dirname, '..', 'QQMusic.AggressiveCleaner.plugin');
+  const plugin = await fs.readFile(pluginPath, 'utf8');
+
+  assert.match(
+    plugin,
+    /^block_video = switch,true,tag=\[入口\] 屏蔽刷歌、视频与短视频,/m
+  );
+});
