@@ -1,26 +1,33 @@
 #!name=QQ音乐激进清理
-#!desc=针对 iOS QQ 音乐的开屏、运营位、垃圾 tab 和推广入口做激进清理
+#!desc=针对 iOS QQ 音乐的开屏、运营位、垃圾 tab 和推广入口做可配置清理
 #!author=Codex
 #!type=normal
+#!system=iOS,iPadOS,macOS
+#!system_version=15
+#!loon_version=3.2.1(733)
 
-[Url Rewrite]
-# 开屏和启动广告
-^https?://y\.qq\.com/.*(splash|popup|advert|ad|operation|activity).* reject
-^https?://(?:[A-Za-z0-9-]+\.)?(?:u|c|i)\.y\.qq\.com/.*(splash|popup|advert|ad|operation|activity).* reject
-^https?://u6\.y\.qq\.com/.*(splash|popup|advert|ad|operation|activity).* reject
-^https?://(?:[A-Za-z0-9-]+\.)?music\.qq\.com/.*(splash|popup|advert|ad|operation|activity).* reject
-^https?://musicpay\.qq\.com/.*(splash|popup|advert|ad|operation|activity).* reject
+[Argument]
+block_splash = switch,true,tag=[广告] 屏蔽开屏广告,desc=屏蔽开屏素材、启动广告与开屏策略
+block_popup = switch,true,tag=[广告] 屏蔽弹窗与气泡,desc=屏蔽弹窗、浮层与标签气泡
+block_banner = switch,true,tag=[广告] 屏蔽横幅与运营卡片,desc=屏蔽横幅、运营卡片与推广入口
+block_live = switch,true,tag=[入口] 屏蔽直播,desc=屏蔽直播入口、标签与推荐
+block_video = switch,true,tag=[入口] 屏蔽视频与短视频,desc=屏蔽视频和短视频入口及推广内容
+block_mall_activity = switch,true,tag=[入口] 屏蔽商城、活动与福利,desc=屏蔽商城、活动、福利、抽奖与装扮入口
+block_promo_recommend = switch,true,tag=[推荐] 屏蔽推广推荐内容,desc=保留普通歌曲推荐，仅清理带推广信号的推荐位
+block_telemetry = switch,true,tag=[隐私] 屏蔽埋点与上报,desc=屏蔽曝光、追踪、报告与广告归因
 
 [Script]
-# 将 QQ 音乐自定义 m1 压缩降级为 Loon 可处理的标准 gzip
-http-request ^https?://u6\.y\.qq\.com/cgi-bin/musics\.fcg script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_request.js,tag=QQ音乐响应协商-u6
+# 只阻断可明确归类且不含核心音乐模块的独立请求
+http-request ^https?://(?:[A-Za-z0-9-]+\.)?y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_request.js,requires-body=true,binary-body-mode=true,tag=QQ音乐可配置请求清理-y,argument=[{block_splash},{block_popup},{block_banner},{block_live},{block_video},{block_mall_activity},{block_promo_recommend},{block_telemetry}]
+http-request ^https?://(?:[A-Za-z0-9-]+\.)?music\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_request.js,requires-body=true,binary-body-mode=true,tag=QQ音乐可配置请求清理-music,argument=[{block_splash},{block_popup},{block_banner},{block_live},{block_video},{block_mall_activity},{block_promo_recommend},{block_telemetry}]
+http-request ^https?://musicpay\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_request.js,requires-body=true,binary-body-mode=true,tag=QQ音乐可配置请求清理-pay,argument=[{block_splash},{block_popup},{block_banner},{block_live},{block_video},{block_mall_activity},{block_promo_recommend},{block_telemetry}]
 
-# QQ 音乐响应体清洗
-http-response ^https?://y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-y
-http-response ^https?://(?:[A-Za-z0-9-]+\.)?(?:u|c|i)\.y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-api
-http-response ^https?://u6\.y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-u6
-http-response ^https?://(?:[A-Za-z0-9-]+\.)?music\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-music
-http-response ^https?://musicpay\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-pay
+# 清理 Loon 能安全解析的 JSON 响应
+http-response ^https?://y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-y,argument=[{block_splash},{block_popup},{block_banner},{block_live},{block_video},{block_mall_activity},{block_promo_recommend},{block_telemetry}]
+http-response ^https?://(?:[A-Za-z0-9-]+\.)?(?:u|c|i)\.y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-api,argument=[{block_splash},{block_popup},{block_banner},{block_live},{block_video},{block_mall_activity},{block_promo_recommend},{block_telemetry}]
+http-response ^https?://u6\.y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-u6,argument=[{block_splash},{block_popup},{block_banner},{block_live},{block_video},{block_mall_activity},{block_promo_recommend},{block_telemetry}]
+http-response ^https?://(?:[A-Za-z0-9-]+\.)?music\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-music,argument=[{block_splash},{block_popup},{block_banner},{block_live},{block_video},{block_mall_activity},{block_promo_recommend},{block_telemetry}]
+http-response ^https?://musicpay\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-pay,argument=[{block_splash},{block_popup},{block_banner},{block_live},{block_video},{block_mall_activity},{block_promo_recommend},{block_telemetry}]
 
 [MITM]
 hostname = y.qq.com, u.y.qq.com, u6.y.qq.com, c.y.qq.com, i.y.qq.com, musicpay.qq.com, *.music.qq.com
