@@ -46,17 +46,29 @@
     telemetry: 'blockTelemetry'
   };
 
-  const CORE_REQUEST = /(?:song|playlist|dissinfo|playurl|lyric|search|login|auth|album|singer|user\.info|vip)/i;
+  const CORE_MODULE = /(?:song|playlist|dissinfo|playurl|lyric|search|login|auth|album|singer|vkey|account|vip)/i;
 
-  const CATEGORY_PATTERNS = [
-    ['live', /mlive|\blive\b|直播/i],
-    ['video', /shortvideo|music\.video|短视频|视频/i],
-    ['mallActivity', /mall|activity|welfare|lottery|music\.active|商城|活动|福利/i],
+  const MODULE_CATEGORY_PATTERNS = [
+    ['live', /^mlive\./i],
+    ['video', /music\.recommend\.RecommendClassifyConfigSrv(?:\.|$)/i],
+    ['video', /music\.video|shortvideo|VideoCardGetFeedList/i],
+    ['mallActivity', /music\.(?:active|actCenter|assetcardcgi|putaocgi)|mall|activity|welfare|lottery/i],
     ['splash', /splash|开屏/i],
-    ['popup', /popupwindow|querytabbubble|popup|bubble|弹窗|气泡/i],
-    ['banner', /advert|radarad|checkadenable|banner|operation|广告/i],
-    ['promoRecommend', /music\.recommend|recommendclassify|feed/i],
-    ['telemetry', /report|trace|tracking|exposure|归因|上报/i]
+    ['popup', /popupwindow|commonpopup|popupexpand|popup|bubble/i],
+    ['banner', /advert|radarad|checkadenable|banner|operation|admanger/i],
+    ['promoRecommend', /music\.recommend|feed/i],
+    ['telemetry', /PushReport|DeviceTokenReport|NoticeOaid|Tracking|Exposure|ReportSvr/i]
+  ];
+
+  const CATEGORY_ORDER = [
+    'live',
+    'video',
+    'mallActivity',
+    'splash',
+    'popup',
+    'banner',
+    'promoRecommend',
+    'telemetry'
   ];
 
   function resolveOptions(rawArgument) {
@@ -98,45 +110,84 @@
     return text;
   }
 
-  function categoriesFor(text) {
-    const categories = [];
-    for (const [category, pattern] of CATEGORY_PATTERNS) {
-      if (pattern.test(text)) {
-        categories.push(category);
+  function categoryForIdentifier(identifier) {
+    for (const [category, pattern] of MODULE_CATEGORY_PATTERNS) {
+      if (pattern.test(identifier)) {
+        return category;
       }
+    }
+    return null;
+  }
+
+  function categoriesForUrl(url) {
+    const text = String(url);
+    const categories = [];
+    const rules = [
+      ['live', /\/(?:mlive|live)(?:[/?._-]|$)/i],
+      ['video', /\/(?:shortvideo|video)(?:[/?._-]|$)/i],
+      ['mallActivity', /\/(?:mall|activity|welfare|lottery)(?:[/?._-]|$)/i],
+      ['splash', /\/(?:splash)(?:[/?._-]|$)/i],
+      ['popup', /\/(?:popup|bubble)(?:[/?._-]|$)/i],
+      ['banner', /\/(?:advert|ad|banner|operation)(?:[/?._-]|$)/i],
+      ['promoRecommend', /\/(?:recommend|feed)(?:[/?._-]|$)/i],
+      ['telemetry', /\/(?:report|tracking|exposure)(?:[/?._-]|$)/i]
+    ];
+    for (const [category, pattern] of rules) {
+      if (pattern.test(text)) categories.push(category);
     }
     return categories;
   }
 
+  function uniqueCategories(categories) {
+    const categorySet = new Set(categories);
+    return CATEGORY_ORDER.filter((category) => categorySet.has(category));
+  }
+
   function extractModuleIdentifiers(text) {
-    return [...String(text).matchAll(/(?:music|mlive)\.[A-Za-z0-9_.]+/g)]
-      .map((match) => match[0]);
+    return [...new Set(
+      [...String(text).matchAll(/(?:music|mlive)\.[A-Za-z0-9_.]+/g)]
+        .map((match) => match[0].replace(/\d+$/, ''))
+    )];
   }
 
   function decideRequest(request, rawArgument) {
     const safeRequest = request && typeof request === 'object' ? request : {};
     const bodyText = bodyToSearchText(safeRequest.body);
-    const searchText = `${safeRequest.url || ''} ${bodyText}`;
-    const categories = categoriesFor(searchText);
+    const identifiers = extractModuleIdentifiers(bodyText);
+    const moduleCategories = identifiers
+      .map(categoryForIdentifier)
+      .filter(Boolean);
+    const categories = uniqueCategories(
+      moduleCategories.concat(categoriesForUrl(safeRequest.url || ''))
+    );
 
-    if (CORE_REQUEST.test(bodyText)) {
+    const options = resolveOptions(rawArgument);
+    const hasDisabledCategory = categories.some((category) => {
+      return options[CATEGORY_OPTION[category]] === false;
+    });
+    if (hasDisabledCategory) {
       return { block: false, categories };
     }
 
-    const identifiers = extractModuleIdentifiers(bodyText);
+    if (identifiers.some((identifier) => CORE_MODULE.test(identifier))) {
+      return { block: false, categories };
+    }
+
     const hasUnknownIdentifier = identifiers.some((identifier) => {
-      return !CORE_REQUEST.test(identifier) && categoriesFor(identifier).length === 0;
+      if (categoryForIdentifier(identifier) || CORE_MODULE.test(identifier)) {
+        return false;
+      }
+      return !identifiers.some((candidate) => {
+        return candidate !== identifier &&
+          (categoryForIdentifier(candidate) || CORE_MODULE.test(candidate)) &&
+          candidate.startsWith(`${identifier}.`);
+      });
     });
     if (hasUnknownIdentifier || categories.length === 0) {
       return { block: false, categories };
     }
 
-    const options = resolveOptions(rawArgument);
-    const everyCategoryEnabled = categories.every((category) => {
-      return options[CATEGORY_OPTION[category]] === true;
-    });
-
-    return { block: everyCategoryEnabled, categories };
+    return { block: true, categories };
   }
 
   return {
