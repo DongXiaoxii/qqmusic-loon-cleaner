@@ -12,6 +12,9 @@
 ^https?://musicpay\.qq\.com/.*(splash|popup|advert|ad|operation|activity).* reject
 
 [Script]
+# 将 QQ 音乐自定义 m1 压缩降级为 Loon 可处理的标准 gzip
+http-request ^https?://u6\.y\.qq\.com/cgi-bin/musics\.fcg script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_request.js,tag=QQ音乐响应协商-u6
+
 # QQ 音乐响应体清洗
 http-response ^https?://y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-y
 http-response ^https?://(?:[A-Za-z0-9-]+\.)?(?:u|c|i)\.y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-api

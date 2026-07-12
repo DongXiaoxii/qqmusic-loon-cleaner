@@ -29,3 +29,14 @@ test('plugin decrypts and cleans the observed u6.y.qq.com API host', async () =>
     'u6.y.qq.com should be included in MITM'
   );
 });
+
+test('plugin downgrades QQ Music m1 responses before response cleaning', async () => {
+  const pluginPath = path.join(__dirname, '..', 'QQMusic.AggressiveCleaner.plugin');
+  const plugin = await fs.readFile(pluginPath, 'utf8');
+
+  assert.match(
+    plugin,
+    /http-request \^https\?:\/\/u6\\\.y\\\.qq\\\.com\/cgi-bin\/musics\\\.fcg script-path=.*qqmusic_request\.js/,
+    'the compressed musics endpoint should invoke the request-header normalizer'
+  );
+});
