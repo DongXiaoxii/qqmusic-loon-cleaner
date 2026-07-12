@@ -14,3 +14,18 @@ test('remote plugin uses raw github script path and y.qq.com subdomains', async 
   );
   assert.match(plugin, /\[Url Rewrite\]/);
 });
+
+test('plugin decrypts and cleans the observed u6.y.qq.com API host', async () => {
+  const pluginPath = path.join(__dirname, '..', 'QQMusic.AggressiveCleaner.plugin');
+  const plugin = await fs.readFile(pluginPath, 'utf8');
+
+  assert.ok(
+    plugin.includes('http-response ^https?://u6\\.y\\.qq\\.com/.* script-path='),
+    'u6.y.qq.com responses should invoke the cleaner'
+  );
+  assert.match(
+    plugin,
+    /hostname = [^\n]*u6\.y\.qq\.com/,
+    'u6.y.qq.com should be included in MITM'
+  );
+});

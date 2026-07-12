@@ -7,6 +7,7 @@
 # 开屏和启动广告
 ^https?://y\.qq\.com/.*(splash|popup|advert|ad|operation|activity).* reject
 ^https?://(?:[A-Za-z0-9-]+\.)?(?:u|c|i)\.y\.qq\.com/.*(splash|popup|advert|ad|operation|activity).* reject
+^https?://u6\.y\.qq\.com/.*(splash|popup|advert|ad|operation|activity).* reject
 ^https?://(?:[A-Za-z0-9-]+\.)?music\.qq\.com/.*(splash|popup|advert|ad|operation|activity).* reject
 ^https?://musicpay\.qq\.com/.*(splash|popup|advert|ad|operation|activity).* reject
 
@@ -14,8 +15,9 @@
 # QQ 音乐响应体清洗
 http-response ^https?://y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-y
 http-response ^https?://(?:[A-Za-z0-9-]+\.)?(?:u|c|i)\.y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-api
+http-response ^https?://u6\.y\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-u6
 http-response ^https?://(?:[A-Za-z0-9-]+\.)?music\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-music
 http-response ^https?://musicpay\.qq\.com/.* script-path=https://raw.githubusercontent.com/DongXiaoxii/qqmusic-loon-cleaner/main/scripts/qqmusic_cleaner.js,requires-body=true,tag=QQ音乐清理-pay
 
 [MITM]
-hostname = y.qq.com, u.y.qq.com, c.y.qq.com, i.y.qq.com, musicpay.qq.com, *.music.qq.com
+hostname = y.qq.com, u.y.qq.com, u6.y.qq.com, c.y.qq.com, i.y.qq.com, musicpay.qq.com, *.music.qq.com
