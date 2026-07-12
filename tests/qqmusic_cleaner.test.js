@@ -16,3 +16,46 @@ test('buildDonePayload leaves an unparseable response untouched', () => {
     'an unchanged binary or non-JSON response must not be written back'
   );
 });
+
+test('missing arguments keep every blocking category enabled', () => {
+  assert.deepEqual(cleaner.resolveOptions(), {
+    blockSplash: true,
+    blockPopup: true,
+    blockBanner: true,
+    blockLive: true,
+    blockVideo: true,
+    blockMallActivity: true,
+    blockPromoRecommend: true,
+    blockTelemetry: true
+  });
+});
+
+test('a disabled live switch preserves live nodes while other categories are removed', () => {
+  const input = JSON.stringify({
+    data: {
+      cards: [
+        { type: 'live', title: '直播' },
+        { type: 'popup', title: '活动弹窗' }
+      ]
+    }
+  });
+
+  const output = JSON.parse(cleaner.cleanResponseBody(input, { block_live: false }));
+
+  assert.deepEqual(output.data.cards, [{ type: 'live', title: '直播' }]);
+});
+
+test('promotional recommendation blocking preserves ordinary song recommendations', () => {
+  const input = JSON.stringify({
+    recommend: [
+      { song_id: 1, title: '普通歌曲', singer: '歌手' },
+      { type: 'operation', title: '福利活动推荐' }
+    ]
+  });
+
+  const output = JSON.parse(cleaner.cleanResponseBody(input));
+
+  assert.deepEqual(output.recommend, [
+    { song_id: 1, title: '普通歌曲', singer: '歌手' }
+  ]);
+});

@@ -6,13 +6,38 @@
   }
 
   if (typeof $done === 'function' && typeof $response !== 'undefined') {
-    $done(api.buildDonePayload($response.body));
+    $done(api.buildDonePayload(
+      $response.body,
+      typeof $argument !== 'undefined' ? $argument : undefined
+    ));
     return;
   }
 
   root.QQMusicCleaner = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   const DROP = Symbol('drop');
+
+  const OPTION_KEYS = {
+    block_splash: 'blockSplash',
+    block_popup: 'blockPopup',
+    block_banner: 'blockBanner',
+    block_live: 'blockLive',
+    block_video: 'blockVideo',
+    block_mall_activity: 'blockMallActivity',
+    block_promo_recommend: 'blockPromoRecommend',
+    block_telemetry: 'blockTelemetry'
+  };
+
+  const CATEGORY_OPTION = {
+    splash: 'blockSplash',
+    popup: 'blockPopup',
+    banner: 'blockBanner',
+    live: 'blockLive',
+    video: 'blockVideo',
+    mallActivity: 'blockMallActivity',
+    promoRecommend: 'blockPromoRecommend',
+    telemetry: 'blockTelemetry'
+  };
 
   const STRONG_PROMO_KEYS = new Set([
     'ad',
@@ -91,7 +116,28 @@
     'trace'
   ];
 
-  function cleanResponseBody(rawBody) {
+  function resolveOptions(rawArgument) {
+    const options = {};
+    for (const property of Object.values(OPTION_KEYS)) {
+      options[property] = true;
+    }
+
+    if (!rawArgument || typeof rawArgument !== 'object') {
+      return options;
+    }
+
+    for (const [argumentKey, property] of Object.entries(OPTION_KEYS)) {
+      if (!Object.prototype.hasOwnProperty.call(rawArgument, argumentKey)) {
+        continue;
+      }
+      const value = rawArgument[argumentKey];
+      options[property] = value === true || String(value).toLowerCase() === 'true';
+    }
+
+    return options;
+  }
+
+  function cleanResponseBody(rawBody, rawArgument) {
     if (typeof rawBody !== 'string' || rawBody.length === 0) {
       return rawBody;
     }
@@ -103,7 +149,7 @@
       return rawBody;
     }
 
-    const cleaned = cleanNode(parsed, [], true);
+    const cleaned = cleanNode(parsed, [], true, resolveOptions(rawArgument));
     if (cleaned === DROP || cleaned === undefined || cleaned === null) {
       return rawBody;
     }
@@ -128,24 +174,24 @@
     }
   }
 
-  function buildDonePayload(rawBody) {
-    const cleaned = cleanResponseBody(rawBody);
+  function buildDonePayload(rawBody, rawArgument) {
+    const cleaned = cleanResponseBody(rawBody, rawArgument);
     return cleaned === rawBody ? {} : { body: cleaned };
   }
 
-  function cleanNode(value, path, isRoot) {
+  function cleanNode(value, path, isRoot, options) {
     if (value === null || typeof value !== 'object') {
-      return cleanPrimitive(value);
+      return cleanPrimitive(value, options);
     }
 
     if (Array.isArray(value)) {
       const next = [];
       for (let index = 0; index < value.length; index += 1) {
         const item = value[index];
-        if (shouldDropNode(item, path.concat(String(index)))) {
+        if (shouldDropNode(item, path.concat(String(index)), options)) {
           continue;
         }
-        const cleanedItem = cleanNode(item, path.concat(String(index)), false);
+        const cleanedItem = cleanNode(item, path.concat(String(index)), false, options);
         if (cleanedItem !== DROP && cleanedItem !== undefined) {
           next.push(cleanedItem);
         }
@@ -162,7 +208,7 @@
       return value;
     }
 
-    if (!isRoot && shouldDropNode(value, path)) {
+    if (!isRoot && shouldDropNode(value, path, options)) {
       return DROP;
     }
 
@@ -172,11 +218,11 @@
 
     const next = {};
     for (const [key, child] of Object.entries(value)) {
-      if (shouldDropField(key, child, path)) {
+      if (shouldDropField(key, child, path, options)) {
         continue;
       }
 
-      const cleanedChild = cleanNode(child, path.concat(key), false);
+      const cleanedChild = cleanNode(child, path.concat(key), false, options);
       if (cleanedChild === DROP || cleanedChild === undefined) {
         continue;
       }
@@ -190,47 +236,46 @@
     return next;
   }
 
-  function cleanPrimitive(value) {
+  function cleanPrimitive(value, options) {
     if (typeof value !== 'string') {
       return value;
     }
 
-    if (isPromoText(value) || isPromoUrl(value)) {
+    const category = detectCategory(value);
+    if (category && isCategoryEnabled(category, options)) {
       return DROP;
     }
 
     return value;
   }
 
-  function shouldDropField(key, value, path) {
+  function shouldDropField(key, value, path, options) {
     const lowerKey = String(key).toLowerCase();
 
-    if (STRONG_PROMO_KEYS.has(lowerKey)) {
-      return true;
-    }
-
     if (WEAK_PROMO_KEYS.has(lowerKey)) {
-      return isPromoLikeValue(value, path);
+      return false;
     }
 
-    if (isTrackingKey(lowerKey)) {
-      return true;
+    const keyCategory = detectCategory(lowerKey);
+    if (keyCategory) {
+      return isCategoryEnabled(keyCategory, options);
     }
 
-    if (isPromoUrlKey(lowerKey) && isPromoLikeValue(value, path)) {
-      return true;
+    if (isPromoUrlKey(lowerKey)) {
+      return isPromoLikeValue(value, path, options);
     }
 
     return false;
   }
 
-  function shouldDropNode(value, path) {
+  function shouldDropNode(value, path, options) {
     if (value === null || value === undefined) {
       return false;
     }
 
     if (typeof value === 'string') {
-      return isPromoText(value) || isPromoUrl(value);
+      const category = detectCategory(value);
+      return Boolean(category && isCategoryEnabled(category, options));
     }
 
     if (typeof value !== 'object') {
@@ -245,36 +290,30 @@
       return false;
     }
 
-    const signature = collectStringSignature(value);
-    if (signature.length === 0) {
-      return false;
-    }
-
-    if (signature.some(isPromoText) || signature.some(isPromoUrl)) {
-      return true;
-    }
-
-    return hasPromoKey(value);
+    const signature = Object.keys(value).concat(collectStringSignature(value));
+    const category = detectFirstCategory(signature);
+    return Boolean(category && isCategoryEnabled(category, options));
   }
 
-  function isPromoLikeValue(value, path) {
+  function isPromoLikeValue(value, path, options) {
     if (value === null || value === undefined) {
       return false;
     }
 
     if (typeof value === 'string') {
-      return isPromoText(value) || isPromoUrl(value);
+      const category = detectCategory(value);
+      return Boolean(category && isCategoryEnabled(category, options));
     }
 
     if (Array.isArray(value)) {
-      return value.some((item, index) => shouldDropNode(item, path.concat(String(index))));
+      return value.some((item, index) => shouldDropNode(item, path.concat(String(index)), options));
     }
 
     if (typeof value === 'object') {
       if (isCoreMusicObject(value)) {
         return false;
       }
-      return shouldDropNode(value, path);
+      return shouldDropNode(value, path, options);
     }
 
     return false;
@@ -343,6 +382,34 @@
     return PROMO_TEXT.some((token) => text.includes(token));
   }
 
+  function detectFirstCategory(values) {
+    for (const value of values) {
+      const category = detectCategory(value);
+      if (category) {
+        return category;
+      }
+    }
+    return null;
+  }
+
+  function detectCategory(text) {
+    const value = String(text).toLowerCase();
+    if (/mlive|\blive\b|直播/.test(value)) return 'live';
+    if (/shortvideo|\bvideo\b|短视频|视频|看点/.test(value)) return 'video';
+    if (/\bmall\b|activity|welfare|lottery|商城|活动|福利|抽奖|装扮|扑通/.test(value)) return 'mallActivity';
+    if (/splash|开屏/.test(value)) return 'splash';
+    if (/popup|bubble|浮层|弹窗|气泡/.test(value)) return 'popup';
+    if (/banner|operation|运营|推广入口/.test(value)) return 'banner';
+    if (/recommend|feed|推广推荐/.test(value)) return 'promoRecommend';
+    if (/trace|report|tracking|exposure|expose|埋点|上报|归因/.test(value)) return 'telemetry';
+    if (/\badvert(?:isement)?\b|\bads?\b|广告/.test(value)) return 'banner';
+    return null;
+  }
+
+  function isCategoryEnabled(category, options) {
+    return options[CATEGORY_OPTION[category]] === true;
+  }
+
   function isPromoUrl(text) {
     if (typeof text !== 'string') {
       return false;
@@ -364,6 +431,8 @@
     buildDonePayload,
     cleanResponseBody,
     cleanNode,
+    resolveOptions,
+    detectCategory,
     isPromoText,
     isPromoUrl
   };
