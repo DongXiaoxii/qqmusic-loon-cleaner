@@ -59,3 +59,32 @@ test('promotional recommendation blocking preserves ordinary song recommendation
     { song_id: 1, title: '普通歌曲', singer: '歌手' }
   ]);
 });
+
+test('every category switch independently controls its matching response nodes', () => {
+  const cases = [
+    ['block_splash', 'splash', '开屏'],
+    ['block_popup', 'popup', '弹窗'],
+    ['block_banner', 'banner', '横幅'],
+    ['block_live', 'live', '直播'],
+    ['block_video', 'shortvideo', '短视频'],
+    ['block_mall_activity', 'activity', '活动'],
+    ['block_promo_recommend', 'feed', '推广推荐'],
+    ['block_telemetry', 'report', '上报']
+  ];
+  const song = { song_id: 1, title: '普通歌曲', singer: '歌手' };
+
+  for (const [argumentName, kind, label] of cases) {
+    const input = JSON.stringify({ cards: [song, { kind, label }] });
+    const blocked = JSON.parse(cleaner.cleanResponseBody(input));
+    const allowed = JSON.parse(cleaner.cleanResponseBody(input, {
+      [argumentName]: false
+    }));
+
+    assert.deepEqual(blocked.cards, [song], `${argumentName} should default to on`);
+    assert.deepEqual(
+      allowed.cards,
+      [song, { kind, label }],
+      `${argumentName} should preserve its category when off`
+    );
+  }
+});
