@@ -6,8 +6,7 @@
   }
 
   if (typeof $done === 'function' && typeof $response !== 'undefined') {
-    const cleaned = api.cleanResponseBody($response.body);
-    $done({ body: cleaned });
+    $done(api.buildDonePayload($response.body));
     return;
   }
 
@@ -127,6 +126,11 @@
     } catch (error) {
       return rawBody;
     }
+  }
+
+  function buildDonePayload(rawBody) {
+    const cleaned = cleanResponseBody(rawBody);
+    return cleaned === rawBody ? {} : { body: cleaned };
   }
 
   function cleanNode(value, path, isRoot) {
@@ -357,6 +361,7 @@
   }
 
   return {
+    buildDonePayload,
     cleanResponseBody,
     cleanNode,
     isPromoText,
